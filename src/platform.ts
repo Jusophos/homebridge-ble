@@ -2,7 +2,7 @@ import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, 
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { validate } from 'class-validator';
-import { ConfigModel, ConfigModelAccessoryType } from './config.model';
+import { ConfigModel, ConfigModelAccessory, ConfigModelAccessoryType } from './config.model';
 import { HomebridgeSwitchPlatformAccessory } from './accessories/switch.accessory';
 
 const noble = require('@abandonware/noble');
@@ -18,6 +18,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
   public configModel: ConfigModel;
+  public bleDevices: any[] = [];
 
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
@@ -52,13 +53,72 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
       // -----------------------------------------------------------------------
       // Bluetooth
-      const processPerpheral = (peripheral: any) => {
+      const processPerpheral = async (peripheral: any, accessory: ConfigModelAccessory) => {
 
+        this.log.debug(`[CONNECTING] ble device ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName}) ...`);
 
+        try {
+
+          await peripheral.connectAsync();
+
+          this.log.debug('[CONNECTED] ble device');
+
+        } catch (error) {
+
+          this.log.error(`[ERROR] Failed to connect to ble device ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
+          this.log.error(error);
+          return;
+        }
+
+        this.log.debug(`[DISCOVERING] characteristics ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName}) ...`);
+
+        let characteristic = null;
+
+        try {
+        
+          const {characteristics} = await peripheral.discoverSomeServicesAndCharacteristicsAsync([]);
+
+          if (!characteristics || characteristics.length === 0) {
+
+            this.log.warn(`[WARNING] No characteristics found ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
+            return;
+          }
+
+          for (const c of characteristics) {
+
+            const compareCharacteristicId = accessory.characteristicId.replace(/-/g, '').toLowerCase();
+
+            if (compareCharacteristicId === c.uuid) {
+
+              characteristic = compareCharacteristicId;
+              this.log.info(`[FOUND] characteristic #${accessory.characteristicId} ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
+              break;
+            }
+          }
+
+          if (!characteristic) {
+
+            this.log.warn(`[WARNING] No characteristic found ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
+            return;
+          }
+
+        } catch (error) {
+
+          this.log.error(`[ERROR] Failed to discover characteristics ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
+          this.log.error(error);
+          return;
+        }
+
+        this.bleDevices.push({
+
+          accessory,
+          peripheral,
+          characteristic,
+        });
       };
 
 
-      noble.on('stateChange', async (state) => {
+      noble.on('stateChange', async (state:any) => {
 
         if (state === 'poweredOn') {
 
@@ -66,9 +126,9 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
         }
       });
       
-      noble.on('discover', async (peripheral) => {
+      noble.on('discover', async (peripheral:any) => {
 
-        this.log.info(`${peripheral.address} (${peripheral.advertisement.localName})`);
+        this.log.debug(`[DISCOVERED] ble device: ${peripheral.address} (${peripheral.advertisement.localName})`);
 
         if (peripheral && peripheral.advertisement && peripheral.advertisement.serviceUuids && peripheral.advertisement.serviceUuids.length > 0) {
 
@@ -80,7 +140,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
               if (serviceId === processedServiceId) {
 
-                this.log.info(`Found peripheral ([SERVICE-ID: #${accessory.serviceId}]) ${peripheral.address} (${peripheral.advertisement.localName}). Stopping scanning ...`);
+                this.log.info(`[FOUND] ble device ([SERVICE-ID: #${accessory.serviceId}]) ${peripheral.address} (${peripheral.advertisement.localName}). Stopping scanning ...`);
 
                 await noble.stopScanningAsync();
 
@@ -92,8 +152,15 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
                   return;
                 }
 
-                processPerpheral(peripheral);
+                await processPerpheral(peripheral, accessory);
 
+                if (this.bleDevices.length === 0) {
+
+                  this.log.error(`[ERROR] no devices at all found.`);
+                  this.log.info(`[ERROR] Starting scanning again ...`);
+                  await noble.startScanningAsync([], false);
+                  return;
+                }
               }
             }
           }

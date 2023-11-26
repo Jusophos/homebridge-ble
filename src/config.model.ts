@@ -21,4 +21,7 @@ export class ConfigModelAccessory {
 
   @IsNotEmpty()
   serviceId: string;
+
+  @IsNotEmpty()
+  characteristicId: string;
 }
