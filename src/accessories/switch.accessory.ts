@@ -14,14 +14,13 @@ export class HomebridgeSwitchPlatformAccessory {
    * These are just used to create a working example
    * You should implement your own code to track the state of your accessory
    */
-  private exampleStates = {
-
-    On: false,
-  };
+  private readonly characteristic:any;
+  private readonly peripheral:any;
 
   constructor(
     private readonly platform: BleHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
+    private readonly device: any,
   ) {
 
     // set accessory information
@@ -41,8 +40,37 @@ export class HomebridgeSwitchPlatformAccessory {
 
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.config.name);
 
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Lightbulb
+    // Bluetooth connection
+    this.peripheral = this.device.peripheral;
+    this.characteristic = this.device.characteristic;
+
+    // console.log(characteristic);
+
+    this.peripheral.on('disconnect', () => {
+
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected`);
+
+    });
+
+    this.peripheral.on('disconnect', () => {
+
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
+    });
+
+    this.characteristic.on('data', ((data: any, isNotification: any) => {
+
+      if (!isNotification) {
+
+        return;
+      }
+
+      this.service.getCharacteristic(this.platform.Characteristic.On).updateValue(data.readUInt8(0) === 1);
+
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> ${data.readUInt8(0) === 1 ? 'ON' : 'OFF'}`);
+
+    }).bind(this));
+
+
 
     // register handlers for the On/Off Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.On)
@@ -56,9 +84,26 @@ export class HomebridgeSwitchPlatformAccessory {
    */
   async setOn(value: CharacteristicValue) {
     // implement your own code to turn your device on/off
-    this.exampleStates.On = value as boolean;
+    const status = value as boolean;
 
-    this.platform.log.debug('Set Characteristic On ->', value);
+    this.platform.log.info(`[${this.accessory.context.config.name}] (by:Homekit) -> ${status? 'ON' : 'OFF'}`);
+
+    if (!await this._ble_checkForConnection()) { return; }
+
+    try {
+
+      const data = Buffer.alloc(1);
+      data.writeUInt8(status ? 1 : 0, 0);
+
+      await this.characteristic.writeAsync(data, false);
+      
+
+    } catch (error) {
+
+      this.platform.log.error(`[${this.accessory.context.config.name}] (by:Homekit) -> [ERROR] could not write to BLE device`);
+      this.platform.log.error(error);
+      return;
+    }    
   }
 
   /**
@@ -75,15 +120,62 @@ export class HomebridgeSwitchPlatformAccessory {
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
   async getOn(): Promise<CharacteristicValue> {
-    // implement your own code to check if the device is on
-    const isOn = this.exampleStates.On;
 
-    this.platform.log.debug('Get Characteristic On ->', isOn);
+    let status = false;
+
+    if (!await this._ble_checkForConnection()) { return false; }
+
+    try {
+    
+      const data = await this.characteristic.readAsync();
+      const status = data.readUInt8(0) === 1;
+      console.log(status);
+
+    } catch (error) {
+
+      this.platform.log.error(`[${this.accessory.context.config.name}] (by:Homekit) -> [ERROR] could not read from BLE device`);
+      this.platform.log.error(error);
+      return;
+    }
+
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:Homekit) -> device read requested: ${status? 'ON' : 'OFF'}]`);
 
     // if you need to return an error to show the device as "Not Responding" in the Home app:
     // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
 
-    return isOn;
+    return status;
+  }
+
+  protected async _ble_checkForConnection(): Promise<boolean> {
+
+    if (this.peripheral.state !== 'connected') {
+
+      this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> peripheral not connected, trying to reconnect`);
+
+      if (!await this._ble_connect()) {
+
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  protected async _ble_connect(): Promise<boolean> {
+
+    try {
+      
+      await this.peripheral.connectAsync();
+
+      return true;
+
+    } catch (e) {
+
+      this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> [ERROR] could not connect to BLE device`);
+      this.platform.log.error(e);
+
+      return false;
+    }
   }
 
 }

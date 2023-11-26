@@ -90,7 +90,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
             if (compareCharacteristicId === c.uuid) {
 
-              characteristic = compareCharacteristicId;
+              characteristic = c;
               this.log.info(`[FOUND] characteristic #${accessory.characteristicId} ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
               break;
             }
@@ -108,6 +108,14 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
           this.log.error(error);
           return;
         }
+
+        characteristic.subscribe((error: any) => { 
+
+          if (error !== null) {
+    
+            this.log.error(`[ERROR] Failed to subscribe to characteristic (#${accessory.characteristicId}) ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
+          }
+        });
 
         this.bleDevices.push({
 
@@ -161,6 +169,8 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
                   await noble.startScanningAsync([], false);
                   return;
                 }
+
+                this.discoverDevices();
               }
             }
           }
@@ -204,7 +214,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
     const accessories = this.configModel.accessories;
 
-    this.log.debug('Discovering devices:', JSON.stringify(this.config));
+    // this.log.debug('Discovering devices:', JSON.stringify(this.config));
 
     for (const accessoryConfig of accessories) {
 
@@ -222,8 +232,6 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
       }
 
       // the accessory does not yet exist, so we need to create it
-      this.log.info('Adding new accessory:', accessoryConfig.name);
-
       this.log.info('Adding new accessory:' + ` ${accessoryConfig.name} | ${uuid}`);
 
       // create a new accessory
@@ -233,7 +241,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
       // the `context` property can be used to store any data about the accessory you may need
       accessory.context.config = accessoryConfig;
 
-      new HomebridgeSwitchPlatformAccessory(this, accessory)
+      new HomebridgeSwitchPlatformAccessory(this, accessory, this.bleDevices.find(d => d.accessory.serviceId === accessoryConfig.serviceId));
 
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
