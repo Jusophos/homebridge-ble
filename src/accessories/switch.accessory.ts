@@ -17,6 +17,8 @@ export class HomebridgeSwitchPlatformAccessory {
   private readonly characteristic:any;
   private readonly peripheral:any;
 
+  protected reconnectInterval: NodeJS.Timeout = null;
+
   constructor(
     private readonly platform: BleHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
@@ -48,14 +50,37 @@ export class HomebridgeSwitchPlatformAccessory {
 
     this.peripheral.on('disconnect', () => {
 
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected`);
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect every 10 seconds ...`);
 
+      if (this.reconnectInterval !== null) {
+
+        clearInterval(this.reconnectInterval);
+        this.reconnectInterval = null;
+      }
+
+      this.reconnectInterval = setInterval(async () => {
+
+        if (await this._ble_connect()) {
+
+          clearInterval(this.reconnectInterval);
+          this.reconnectInterval = null;
+
+          
+        }
+
+      }, 10000);
     });
 
-    this.peripheral.on('disconnect', () => {
+    // this.peripheral.on('connected', () => {
 
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
-    });
+    //   this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
+
+    //   if (this.reconnectInterval !== null) {
+
+    //     clearInterval(this.reconnectInterval);
+    //     this.reconnectInterval = null;
+    //   }
+    // });
 
     this.characteristic.on('data', ((data: any, isNotification: any) => {
 
@@ -88,12 +113,15 @@ export class HomebridgeSwitchPlatformAccessory {
 
     this.platform.log.info(`[${this.accessory.context.config.name}] (by:Homekit) -> ${status? 'ON' : 'OFF'}`);
 
-    if (!await this._ble_checkForConnection()) { return; }
+    if (!await this._ble_checkForConnection()) { 
+     
+      return;
+    }
 
     try {
 
       const data = Buffer.alloc(1);
-      data.writeUInt8(status ? 1 : 0, 0);
+      data.writeUInt8(status ? 1 : 0, 0);       
 
       await this.characteristic.writeAsync(data, false);
       
@@ -129,7 +157,6 @@ export class HomebridgeSwitchPlatformAccessory {
     
       const data = await this.characteristic.readAsync();
       const status = data.readUInt8(0) === 1;
-      console.log(status);
 
     } catch (error) {
 
@@ -138,7 +165,7 @@ export class HomebridgeSwitchPlatformAccessory {
       return;
     }
 
-    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:Homekit) -> device read requested: ${status? 'ON' : 'OFF'}]`);
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:Homekit) -> device read requested. Status: ${status? 'ON' : 'OFF'}`);
 
     // if you need to return an error to show the device as "Not Responding" in the Home app:
     // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
@@ -150,12 +177,9 @@ export class HomebridgeSwitchPlatformAccessory {
 
     if (this.peripheral.state !== 'connected') {
 
-      this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> peripheral not connected, trying to reconnect`);
+      this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> peripheral not connected. Could not perform any action.`);
 
-      if (!await this._ble_connect()) {
-
-        return false;
-      }
+      return false;
     }
 
     return true;
@@ -163,16 +187,26 @@ export class HomebridgeSwitchPlatformAccessory {
 
   protected async _ble_connect(): Promise<boolean> {
 
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) trying to reconnect ...`);
+
     try {
-      
+
+      if (this.peripheral.state === 'connected') {
+
+        this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
+
+        return true;
+      }
+
+      await this.peripheral.cancelConnect();
       await this.peripheral.connectAsync();
 
       return true;
 
     } catch (e) {
 
-      this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> [ERROR] could not connect to BLE device`);
-      this.platform.log.error(e);
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> [ERROR] could not connect to BLE device`);
+      // this.platform.log.debug(e);
 
       return false;
     }
