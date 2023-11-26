@@ -20,5 +20,5 @@ export class ConfigModelAccessory {
   type: ConfigModelAccessoryType;
 
   @IsNotEmpty()
-  address: string;
+  serviceId: string;
 }

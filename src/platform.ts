@@ -37,23 +37,67 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
       log.debug('Executed didFinishLaunching callback');
 
+      // -----------------------------------------------------------------------
+      // Initialize and validate config
+      this.configModel = {...new ConfigModel, ...this.config};
+
+      const errors = await validate(this.configModel);
+
+      if (errors.length > 0) {
+
+        this.log.error('Config validation failed');
+        this.log.error(JSON.stringify(errors));
+        return;
+      }
+
+      // -----------------------------------------------------------------------
       // Bluetooth
+      const processPerpheral = (peripheral: any) => {
+
+
+      };
+
+
       noble.on('stateChange', async (state) => {
 
-        console.log('CHANGE????: ' + state);
-
         if (state === 'poweredOn') {
+
           await noble.startScanningAsync([], false);
         }
       });
       
       noble.on('discover', async (peripheral) => {
 
-        console.log(peripheral.address);
-
-        // process.exit();
-
         this.log.info(`${peripheral.address} (${peripheral.advertisement.localName})`);
+
+        if (peripheral && peripheral.advertisement && peripheral.advertisement.serviceUuids && peripheral.advertisement.serviceUuids.length > 0) {
+
+          for (const serviceId of peripheral.advertisement.serviceUuids) {
+
+            for (const accessory of this.configModel.accessories) {
+
+              const processedServiceId = accessory.serviceId.replace(/-/g, '').toLowerCase();
+
+              if (serviceId === processedServiceId) {
+
+                this.log.info(`Found peripheral ([SERVICE-ID: #${accessory.serviceId}]) ${peripheral.address} (${peripheral.advertisement.localName}). Stopping scanning ...`);
+
+                await noble.stopScanningAsync();
+
+                this.log.info(`Scanning stopped.`);
+
+                if (!peripheral.connectable) {
+
+                  this.log.warn(`[WARNING] Peripheral ([SERVICE-ID: #${accessory.serviceId}]) ${peripheral.address} (${peripheral.advertisement.localName}) is not connectable!`);
+                  return;
+                }
+
+                processPerpheral(peripheral);
+
+              }
+            }
+          }
+        }
 
         // await noble.stopScanningAsync();
         // await peripheral.connectAsync();
@@ -68,22 +112,8 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
       // noble.startScanningAsync(['180f'], false);
 
-
-
-
-      this.configModel = {...new ConfigModel, ...this.config};
-
-      const errors = await validate(this.configModel);
-
-      if (errors.length > 0) {
-
-        this.log.error('Config validation failed');
-        this.log.error(JSON.stringify(errors));
-        return;
-      }
-
       // run the method to discover / register your devices as accessories
-      this.discoverDevices();
+      // this.discoverDevices();
     });
   }
 
@@ -111,7 +141,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
     for (const accessoryConfig of accessories) {
 
-      const uuid = this.api.hap.uuid.generate(accessoryConfig.address);
+      const uuid = this.api.hap.uuid.generate(accessoryConfig.serviceId);
 
 
       // see if an accessory with the same uuid has already been registered and restored from
