@@ -154,7 +154,9 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
     const accessories = this.configModel.accessories;
 
-    // this.log.debug('Discovering devices:', JSON.stringify(this.config));
+    // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, this.accessories);
+    // return;
+
 
     for (const accessoryConfig of accessories) {
 
@@ -165,33 +167,37 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
       // the cached devices we stored in the `configureAccessory` method above
       const existingAccessory = this.accessories.find(a => a.UUID === uuid);
 
+
       if (existingAccessory) {
 
-        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-        this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
+        this.log.info('Loading existing accessory from cache:', existingAccessory.displayName);
+        // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
+        new HomebridgeSwitchPlatformAccessory(this, existingAccessory, this.bleDevices.find(d => d.accessory.serviceId === accessoryConfig.serviceId));
+
+      } else {
+
+        // the accessory does not yet exist, so we need to create it
+        this.log.info('Adding new accessory:' + ` ${accessoryConfig.name} | ${uuid}`);
+
+        // create a new accessory
+        const accessory = new this.api.platformAccessory(accessoryConfig.name, uuid);
+
+        // store a copy of the device object in the `accessory.context`
+        // the `context` property can be used to store any data about the accessory you may need
+        accessory.context.config = accessoryConfig;
+
+        new HomebridgeSwitchPlatformAccessory(this, accessory, this.bleDevices.find(d => d.accessory.serviceId === accessoryConfig.serviceId));
+
+        // create the accessory handler for the newly create accessory
+        // this is imported from `platformAccessory.ts`
+        // switch (accessoryConfig.type) {
+
+        //   case ConfigModelAccessoryType.switch: console.log('LOVE 2');  new HomebridgeSwitchPlatformAccessory(this, existingAccessory); break;
+        // }
+
+        // link the accessory to your platform
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
       }
-
-      // the accessory does not yet exist, so we need to create it
-      this.log.info('Adding new accessory:' + ` ${accessoryConfig.name} | ${uuid}`);
-
-      // create a new accessory
-      const accessory = new this.api.platformAccessory(accessoryConfig.name, uuid);
-
-      // store a copy of the device object in the `accessory.context`
-      // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.config = accessoryConfig;
-
-      new HomebridgeSwitchPlatformAccessory(this, accessory, this.bleDevices.find(d => d.accessory.serviceId === accessoryConfig.serviceId));
-
-      // create the accessory handler for the newly create accessory
-      // this is imported from `platformAccessory.ts`
-      // switch (accessoryConfig.type) {
-
-      //   case ConfigModelAccessoryType.switch: console.log('LOVE 2');  new HomebridgeSwitchPlatformAccessory(this, existingAccessory); break;
-      // }
-
-      // link the accessory to your platform
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     }
   }
 }
