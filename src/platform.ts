@@ -55,73 +55,13 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
       // Bluetooth
       const processPerpheral = async (peripheral: any, accessory: ConfigModelAccessory) => {
 
-        this.log.debug(`[CONNECTING] ble device ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName}) ...`);
+        // this.log.debug(`[CONNECTING] ble device ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName}) ...`);
 
-        try {
-
-          await peripheral.connectAsync();
-
-          this.log.debug('[CONNECTED] ble device');
-
-        } catch (error) {
-
-          this.log.error(`[ERROR] Failed to connect to ble device ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
-          this.log.error(error);
-          return;
-        }
-
-        this.log.debug(`[DISCOVERING] characteristics ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName}) ...`);
-
-        let characteristic = null;
-
-        try {
-        
-          const {characteristics} = await peripheral.discoverSomeServicesAndCharacteristicsAsync([]);
-
-          if (!characteristics || characteristics.length === 0) {
-
-            this.log.warn(`[WARNING] No characteristics found ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
-            return;
-          }
-
-          for (const c of characteristics) {
-
-            const compareCharacteristicId = accessory.characteristicId.replace(/-/g, '').toLowerCase();
-
-            if (compareCharacteristicId === c.uuid) {
-
-              characteristic = c;
-              this.log.info(`[FOUND] characteristic #${accessory.characteristicId} ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
-              break;
-            }
-          }
-
-          if (!characteristic) {
-
-            this.log.warn(`[WARNING] No characteristic found ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
-            return;
-          }
-
-        } catch (error) {
-
-          this.log.error(`[ERROR] Failed to discover characteristics ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
-          this.log.error(error);
-          return;
-        }
-
-        characteristic.subscribe((error: any) => { 
-
-          if (error !== null) {
-    
-            this.log.error(`[ERROR] Failed to subscribe to characteristic (#${accessory.characteristicId}) ([SERVICE-ID: #${peripheral.advertisement.serviceUuids[0]}]) ${peripheral.address} (${peripheral.advertisement.localName})`);
-          }
-        });
 
         this.bleDevices.push({
 
           accessory,
           peripheral,
-          characteristic,
         });
       };
 

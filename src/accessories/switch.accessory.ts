@@ -14,8 +14,8 @@ export class HomebridgeSwitchPlatformAccessory {
    * These are just used to create a working example
    * You should implement your own code to track the state of your accessory
    */
-  private readonly characteristic:any;
-  private readonly peripheral:any;
+  private characteristic:any = null;
+  private peripheral:any = null;
 
   protected reconnectInterval: NodeJS.Timeout = null;
 
@@ -42,12 +42,7 @@ export class HomebridgeSwitchPlatformAccessory {
 
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.config.name);
 
-    // Bluetooth connection
-    this.peripheral = this.device.peripheral;
-    this.characteristic = this.device.characteristic;
-
-    // console.log(characteristic);
-
+    this.peripheral = device.peripheral;
     this.peripheral.on('disconnect', () => {
 
       this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect every 10 seconds ...`);
@@ -64,12 +59,14 @@ export class HomebridgeSwitchPlatformAccessory {
 
           clearInterval(this.reconnectInterval);
           this.reconnectInterval = null;
-
-          
         }
 
       }, 10000);
     });
+
+    this._ble_connect();
+
+    // console.log(characteristic);
 
     // this.peripheral.on('connected', () => {
 
@@ -82,18 +79,7 @@ export class HomebridgeSwitchPlatformAccessory {
     //   }
     // });
 
-    this.characteristic.on('data', ((data: any, isNotification: any) => {
-
-      if (!isNotification) {
-
-        return;
-      }
-
-      this.service.getCharacteristic(this.platform.Characteristic.On).updateValue(data.readUInt8(0) === 1);
-
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> ${data.readUInt8(0) === 1 ? 'ON' : 'OFF'}`);
-
-    }).bind(this));
+    
 
 
 
@@ -173,6 +159,18 @@ export class HomebridgeSwitchPlatformAccessory {
     return status;
   }
 
+  async onData(data: any, isNotification: any) {
+
+    if (!isNotification) {
+
+      return;
+    }
+
+    this.service.getCharacteristic(this.platform.Characteristic.On).updateValue(data.readUInt8(0) === 1);
+
+    this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> ${data.readUInt8(0) === 1 ? 'ON' : 'OFF'}`);
+  }
+
   protected async _ble_checkForConnection(): Promise<boolean> {
 
     if (this.peripheral.state !== 'connected') {
@@ -187,7 +185,7 @@ export class HomebridgeSwitchPlatformAccessory {
 
   protected async _ble_connect(): Promise<boolean> {
 
-    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) trying to reconnect ...`);
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) trying to connect ...`);
 
     try {
 
@@ -201,6 +199,8 @@ export class HomebridgeSwitchPlatformAccessory {
       await this.peripheral.cancelConnect();
       await this.peripheral.connectAsync();
 
+      await this._ble_initialize();
+
       return true;
 
     } catch (e) {
@@ -208,8 +208,85 @@ export class HomebridgeSwitchPlatformAccessory {
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> [ERROR] could not connect to BLE device`);
       // this.platform.log.debug(e);
 
+      if (this.reconnectInterval === null) {
+
+        this.reconnectInterval = setInterval(async () => {
+
+          if (await this._ble_connect()) {
+
+            clearInterval(this.reconnectInterval);
+            this.reconnectInterval = null;
+          }
+
+        }, 10000);
+      }
+
       return false;
     }
+  }
+
+  protected async _ble_initialize(): Promise<boolean> {
+
+    // HERE WE NEED TO DISCOVER THE CHARACTERISTIC
+    if (this.characteristic !== null) {
+
+      this.characteristic.unsubscribe();
+      this.characteristic.removeAllListeners();
+    }
+
+    this.characteristic = null;
+    let characteristic = null;
+
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> discovering services ...`);
+
+    try {
+    
+      const {characteristics} = await this.peripheral.discoverSomeServicesAndCharacteristicsAsync([]);
+
+      if (!characteristics || characteristics.length === 0) {
+
+        this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> no characteristics found!`);
+        return;
+      }
+
+      for (const c of characteristics) {
+
+        const compareCharacteristicId = this.accessory.context.config.characteristicId.replace(/-/g, '').toLowerCase();
+
+        if (compareCharacteristicId === c.uuid) {
+
+          characteristic = c;
+          this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> characteristic found: #${this.accessory.context.config.serviceId}`);
+          break;
+        }
+      }
+
+      if (!characteristic) {
+
+        this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> registered characteristic NOT found. Your config says id: #${this.accessory.context.config.serviceId}!`);
+        return;
+      }
+
+    } catch (error) {
+
+      this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while discovering services:`);
+      this.platform.log.error(error);
+      return;
+    }
+
+    characteristic.subscribe((error: any) => { 
+
+      if (error !== null) {
+
+        this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
+        this.platform.log.error(error);
+      }
+
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
+      characteristic.on('data', this.onData.bind(this));
+
+      this.characteristic = characteristic;
+    });
   }
 
 }
