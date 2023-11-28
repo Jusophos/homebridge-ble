@@ -293,23 +293,24 @@ export class HomebridgeSwitchPlatformAccessory {
       return;
     }
 
-    characteristic.unsubscribe(() => {
+    characteristic.unsubscribe((e) => {
 
-      characteristic.subscribe((error: any) => { 
-
-        if (error !== null) {
-  
-          this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
-          this.platform.log.error(error);
-        }
-  
-        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
-        
-  
-        this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
-      });
+      console.log(e);
     });
 
+    characteristic.subscribe((error: any) => { 
+
+      if (error !== null) {
+
+        this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
+        this.platform.log.error(error);
+      }
+
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
+      
+
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
+    });
 
 
     characteristic.on('data', this.onData.bind(this));
