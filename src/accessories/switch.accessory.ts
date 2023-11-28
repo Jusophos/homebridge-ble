@@ -25,6 +25,8 @@ export class HomebridgeSwitchPlatformAccessory {
     private readonly device: any,
   ) {
 
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:Homekit) -> initializing switch ...`);
+
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
@@ -64,24 +66,28 @@ export class HomebridgeSwitchPlatformAccessory {
       }, 10000);
     });
 
-    this._ble_connect();
+    this.peripheral.on('connect', async () => {
 
-    // console.log(characteristic);
+      if (this.peripheral.state !== 'connected') {
+        
+        return;
+      }
+      
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected ( current status: ${this.peripheral.state} )})`);
 
-    // this.peripheral.on('connected', () => {
+      if (this.reconnectInterval !== null) {
 
-    //   this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
+        clearInterval(this.reconnectInterval);
+        this.reconnectInterval = null;
+      }
 
-    //   if (this.reconnectInterval !== null) {
+      await this._ble_initialize();
+    });
 
-    //     clearInterval(this.reconnectInterval);
-    //     this.reconnectInterval = null;
-    //   }
-    // });
+    this._ble_connect().then(async () => {
 
-    
-
-
+      // await this._ble_initialize();
+    });
 
     // register handlers for the On/Off Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.On)
@@ -180,6 +186,13 @@ export class HomebridgeSwitchPlatformAccessory {
       return false;
     }
 
+    if (this.characteristic === null) {
+
+      this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> characteristic not found. Could not perform any action.`);
+
+      return false;
+    }
+
     return true;
   }
 
@@ -191,15 +204,21 @@ export class HomebridgeSwitchPlatformAccessory {
 
       if (this.peripheral.state === 'connected') {
 
-        this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
+        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> connection already established.`);
 
         return true;
       }
 
       await this.peripheral.cancelConnect();
-      await this.peripheral.connectAsync();
 
-      await this._ble_initialize();
+      if (this.peripheral.state === 'connecting') {
+
+        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> already trying to connect ...`);
+
+        return false;
+      }
+
+      await this.peripheral.connectAsync();
 
       return true;
 
@@ -274,19 +293,28 @@ export class HomebridgeSwitchPlatformAccessory {
       return;
     }
 
-    characteristic.subscribe((error: any) => { 
+    characteristic.unsubscribe(() => {
 
-      if (error !== null) {
+      characteristic.subscribe((error: any) => { 
 
-        this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
-        this.platform.log.error(error);
-      }
-
-      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
-      characteristic.on('data', this.onData.bind(this));
-
-      this.characteristic = characteristic;
+        if (error !== null) {
+  
+          this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
+          this.platform.log.error(error);
+        }
+  
+        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
+        
+  
+        this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
+      });
     });
+
+
+
+    characteristic.on('data', this.onData.bind(this));
+
+    this.characteristic = characteristic;
   }
 
 }
