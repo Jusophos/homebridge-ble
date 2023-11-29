@@ -295,9 +295,14 @@ export class HomebridgeSwitchPlatformAccessory {
       return;
     }
 
-    characteristic.unsubscribe((e) => {
+    // characteristic.unsubscribe((e) => {
 
-      console.log(e);
+    //   console.log(e);
+    // });
+
+    characteristic.once('notify', (x) => {
+
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> notify event: ${x}`);
     });
 
     characteristic.subscribe((error: any) => { 
@@ -312,8 +317,6 @@ export class HomebridgeSwitchPlatformAccessory {
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
       this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
     });
-
-    console.log(await characteristic.readAsync());
 
 
     characteristic.on('data', this.onData.bind(this));
