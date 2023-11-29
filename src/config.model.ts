@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, ValidateNested } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, Min, ValidateNested } from 'class-validator';
 
 export enum ConfigModelAccessoryType {
   
@@ -24,4 +24,8 @@ export class ConfigModelAccessory {
 
   @IsNotEmpty()
   characteristicId: string;
+
+  @IsOptional()
+  @Min(1000)
+  intervalForUpdating: number;
 }

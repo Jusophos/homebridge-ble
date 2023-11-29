@@ -19,6 +19,7 @@ export class HomebridgeSwitchPlatformAccessory {
   private peripheral:any = null;
 
   protected reconnectInterval: NodeJS.Timeout = null;
+  protected updateInterval: NodeJS.Timeout = null;
 
   constructor(
     private readonly platform: BleHomebridgePlatform,
@@ -310,28 +311,45 @@ export class HomebridgeSwitchPlatformAccessory {
     //   console.log(e);
     // });
 
-    characteristic.once('notify', (x) => {
+    console.log(this.accessory.context.config);
 
-      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> notify event: ${x}`);
-    });
+    if (this.accessory.context.config.intervalForUpdating !== null && this.accessory.context.config.intervalForUpdating > 999) {
 
-    characteristic.subscribe((error: any) => { 
+      this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> you are using update interval instead of notifications. This is not recommended! Interval: ${this.accessory.context.config.intervalForUpdating}ms`);
 
-      if (error !== null) {
+      this.updateInterval = setInterval(async () => {
 
-        this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
-        this.platform.log.error(error);
-        return;
-      }
+        const data = await this.characteristic.readAsync();
 
-      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
-    });
+        this.onData(data, true);
+
+      }, this.accessory.context.config.intervalForUpdating);
+
+    } else {
+
+      characteristic.once('notify', (x) => {
+
+        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> notify event: ${x}`);
+      });
+
+      characteristic.subscribe((error: any) => { 
+
+        if (error !== null) {
+
+          this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
+          this.platform.log.error(error);
+          return;
+        }
+
+        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
+        this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
+      });
 
 
-    characteristic.on('data', this.onData.bind(this));
+      characteristic.on('data', this.onData.bind(this));
+    }
 
-    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> RDY?`);
+    // this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> RDY?`);
 
     this.characteristic = characteristic;
   }
