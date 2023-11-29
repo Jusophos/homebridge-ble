@@ -1,6 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BleHomebridgePlatform } from '../platform';
 
+const noble = require('@abandonware/noble');
 
 /**
  * Platform Accessory
@@ -218,6 +219,7 @@ export class HomebridgeSwitchPlatformAccessory {
         return false;
       }
 
+      // this.peripheral._noble.reset();
       await this.peripheral.connectAsync();
 
       return true;
@@ -304,11 +306,14 @@ export class HomebridgeSwitchPlatformAccessory {
 
         this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
         this.platform.log.error(error);
+        return;
       }
 
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
       this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
     });
+
+    console.log(await characteristic.readAsync());
 
 
     characteristic.on('data', this.onData.bind(this));
