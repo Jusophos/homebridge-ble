@@ -114,9 +114,19 @@ export class HomebridgeSwitchPlatformAccessory {
     try {
 
       const data = Buffer.alloc(1);
-      data.writeUInt8(status ? 1 : 0, 0);       
+      data.writeUInt8(status ? 1 : 0, 0);      
+      
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> writing to BLE device (${data}) ...`);
 
       await this.characteristic.writeAsync(data, false);
+
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> written!`);
+
+      const readData = await this.characteristic.readAsync();
+      const s = readData.readUInt8(0) === 1;
+
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> read: ${s? 'ON' : 'OFF'}`);
+      
       
 
     } catch (error) {
