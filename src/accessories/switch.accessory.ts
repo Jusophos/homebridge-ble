@@ -73,7 +73,7 @@ export class HomebridgeSwitchPlatformAccessory {
         return;
       }
       
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected ( current status: ${this.peripheral.state} )})`);
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
 
       if (this.reconnectInterval !== null) {
 
@@ -307,13 +307,13 @@ export class HomebridgeSwitchPlatformAccessory {
       }
 
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
-      
-
       this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
     });
 
 
     characteristic.on('data', this.onData.bind(this));
+
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> RDY?`);
 
     this.characteristic = characteristic;
   }
