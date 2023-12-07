@@ -65,6 +65,8 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
         });
       };
 
+      this.log.debug(`STATUS: ${noble.status}`);
+
 
       noble.on('stateChange', async (state:any) => {
 

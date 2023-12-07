@@ -1,3 +1,3 @@
-const noble = require('@abandonware/noble/with-custom-binding')({extended: true});
+const noble = require('@abandonware/noble');
 
 export { noble };
