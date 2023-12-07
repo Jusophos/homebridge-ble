@@ -5,7 +5,7 @@ import { validate } from 'class-validator';
 import { ConfigModel, ConfigModelAccessory, ConfigModelAccessoryType } from './config.model';
 import { HomebridgeSwitchPlatformAccessory } from './accessories/switch.accessory';
 
-const noble = require('@abandonware/noble');
+import { noble } from './noble';
 
 /**
  * HomebridgePlatform

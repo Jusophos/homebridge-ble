@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { BleHomebridgePlatform } from '../platform';
 
-const noble = require('@abandonware/noble');
+import { noble } from '../noble';
 
 /**
  * Platform Accessory
