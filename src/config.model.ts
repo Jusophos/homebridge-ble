@@ -20,6 +20,9 @@ export class ConfigModelAccessory {
   type: ConfigModelAccessoryType;
 
   @IsNotEmpty()
+  deviceId: string;
+
+  @IsNotEmpty()
   serviceId: string;
 
   @IsNotEmpty()

@@ -74,7 +74,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
       for (const accessory of this.configModel.accessories) {
 
-        const peripheral = await adapter.waitDevice('AB:E7:84:EF:16:01');
+        const peripheral = await adapter.waitDevice(accessory.deviceId);
 
         await processPerpheral(peripheral, accessory);
 
