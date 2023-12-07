@@ -2,7 +2,7 @@
   "private": false,
   "displayName": "BLE Accessories",
   "name": "homebridge-ble",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Control BLE devices from Homebridge.",
   "license": "Apache-2.0",
   "repository": {
