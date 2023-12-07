@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-23",
-    "class-validator": "^0.14.0"
+    "class-validator": "^0.14.0",
+    "node-ble": "^1.9.0"
   }
 }

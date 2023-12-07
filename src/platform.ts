@@ -5,7 +5,7 @@ import { validate } from 'class-validator';
 import { ConfigModel, ConfigModelAccessory, ConfigModelAccessoryType } from './config.model';
 import { HomebridgeSwitchPlatformAccessory } from './accessories/switch.accessory';
 
-import { noble } from './noble';
+const {createBluetooth} = require('node-ble')
 
 /**
  * HomebridgePlatform
@@ -65,74 +65,21 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
         });
       };
 
-      this.log.debug(`STATUS: ${noble.status}`);
+      const {bluetooth, destroy} = createBluetooth();
 
+      const adapter = await bluetooth.defaultAdapter();
 
-      noble.on('stateChange', async (state:any) => {
+      if (! await adapter.isDiscovering())
+        await adapter.startDiscovery()
 
-        if (state === 'poweredOn') {
+      for (const accessory of this.configModel.accessories) {
 
-          await noble.startScanningAsync([], false);
-        }
-      });
-      
-      noble.on('discover', async (peripheral:any) => {
+        const peripheral = await adapter.waitDevice('AB:E7:84:EF:16:01');
 
-        this.log.debug(`[DISCOVERED] ble device: ${peripheral.address} (${peripheral.advertisement.localName})`);
+        await processPerpheral(peripheral, accessory);
 
-        if (peripheral && peripheral.advertisement && peripheral.advertisement.serviceUuids && peripheral.advertisement.serviceUuids.length > 0) {
-
-          for (const serviceId of peripheral.advertisement.serviceUuids) {
-
-            for (const accessory of this.configModel.accessories) {
-
-              const processedServiceId = accessory.serviceId.replace(/-/g, '').toLowerCase();
-
-              if (serviceId === processedServiceId) {
-
-                this.log.info(`[FOUND] ble device ([SERVICE-ID: #${accessory.serviceId}]) ${peripheral.address} (${peripheral.advertisement.localName}). Stopping scanning ...`);
-
-                await noble.stopScanningAsync();
-
-                this.log.info(`Scanning stopped.`);
-
-                if (!peripheral.connectable) {
-
-                  this.log.warn(`[WARNING] Peripheral ([SERVICE-ID: #${accessory.serviceId}]) ${peripheral.address} (${peripheral.advertisement.localName}) is not connectable!`);
-                  return;
-                }
-
-                await processPerpheral(peripheral, accessory);
-
-                if (this.bleDevices.length === 0) {
-
-                  this.log.error(`[ERROR] no devices at all found.`);
-                  this.log.info(`[ERROR] Starting scanning again ...`);
-                  await noble.startScanningAsync([], false);
-                  return;
-                }
-
-                this.discoverDevices();
-              }
-            }
-          }
-        }
-
-        // await noble.stopScanningAsync();
-        // await peripheral.connectAsync();
-        // const {characteristics} = await peripheral.discoverSomeServicesAndCharacteristicsAsync(['180f'], ['2a19']);
-        // const batteryLevel = (await characteristics[0].readAsync())[0];
-      
-        // this.log.info(`${peripheral.address} (${peripheral.advertisement.localName}): ${batteryLevel}%`);
-      
-        // await peripheral.disconnectAsync();
-        // process.exit(0);
-      });
-
-      // noble.startScanningAsync(['180f'], false);
-
-      // run the method to discover / register your devices as accessories
-      // this.discoverDevices();
+        this.discoverDevices();
+      }
     });
   }
 

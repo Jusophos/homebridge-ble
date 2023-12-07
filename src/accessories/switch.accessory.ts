@@ -119,11 +119,11 @@ export class HomebridgeSwitchPlatformAccessory {
       
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> writing to BLE device (${data}) ...`);
 
-      await this.characteristic.writeAsync(data, false);
+      await this.characteristic.writeValue(data);
 
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> written!`);
 
-      const readData = await this.characteristic.readAsync();
+      const readData = await this.characteristic.readValue();
       const s = readData.readUInt8(0) === 1;
 
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> read: ${s? 'ON' : 'OFF'}`);
@@ -159,7 +159,7 @@ export class HomebridgeSwitchPlatformAccessory {
 
     try {
     
-      const data = await this.characteristic.readAsync();
+      const data = await this.characteristic.readValue();
       const status = data.readUInt8(0) === 1;
 
     } catch (error) {
@@ -177,12 +177,7 @@ export class HomebridgeSwitchPlatformAccessory {
     return status;
   }
 
-  async onData(data: any, isNotification: any) {
-
-    if (!isNotification) {
-
-      return;
-    }
+  async onData(data: any) {
 
     this.service.getCharacteristic(this.platform.Characteristic.On).updateValue(data.readUInt8(0) === 1);
 
@@ -214,24 +209,21 @@ export class HomebridgeSwitchPlatformAccessory {
 
     try {
 
-      if (this.peripheral.state === 'connected') {
+      if (await this.peripheral.isConnected()) {
 
         this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> connection already established.`);
 
         return true;
       }
 
-      await this.peripheral.cancelConnect();
+      // if (this.peripheral.state === 'connecting') {
 
-      if (this.peripheral.state === 'connecting') {
+      //   this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> already trying to connect ...`);
 
-        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> already trying to connect ...`);
+      //   return false;
+      // }
 
-        return false;
-      }
-
-      // this.peripheral._noble.reset();
-      await this.peripheral.connectAsync();
+      await this.peripheral.connect();
 
       return true;
 
@@ -262,8 +254,7 @@ export class HomebridgeSwitchPlatformAccessory {
     // HERE WE NEED TO DISCOVER THE CHARACTERISTIC
     if (this.characteristic !== null) {
 
-      this.characteristic.unsubscribe();
-      this.characteristic.removeAllListeners();
+      await this.characteristic.stopNotifications();
     }
 
     this.characteristic = null;
@@ -273,25 +264,11 @@ export class HomebridgeSwitchPlatformAccessory {
 
     try {
     
-      const {characteristics} = await this.peripheral.discoverSomeServicesAndCharacteristicsAsync([]);
+      const gattServer = await this.peripheral.gatt();
 
-      if (!characteristics || characteristics.length === 0) {
 
-        this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> no characteristics found!`);
-        return;
-      }
-
-      for (const c of characteristics) {
-
-        const compareCharacteristicId = this.accessory.context.config.characteristicId.replace(/-/g, '').toLowerCase();
-
-        if (compareCharacteristicId === c.uuid) {
-
-          characteristic = c;
-          this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> characteristic found: #${this.accessory.context.config.serviceId}`);
-          break;
-        }
-      }
+      const service = await gattServer.getPrimaryService(this.accessory.context.config.serviceId.toLowerCase())
+      const characteristic = await service.getCharacteristic(this.accessory.context.config.characteristicId.toLowerCase())
 
       if (!characteristic) {
 
@@ -319,39 +296,20 @@ export class HomebridgeSwitchPlatformAccessory {
 
       this.updateInterval = setInterval(async () => {
 
-        const data = await this.characteristic.readAsync();
+        const data = await this.characteristic.readValue();
 
-        this.onData(data, true);
+        this.onData(data);
 
       }, this.accessory.context.config.intervalForUpdating);
 
     } else {
 
-      characteristic.once('notify', (x) => {
-
-        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> notify event: ${x}`);
-      });
-
-      characteristic.subscribe((error: any) => { 
-
-        if (error !== null) {
-
-          this.platform.log.error(`[${this.accessory.context.config.name}] (by:BLE) -> error while subscribing to characteristic: ${this.accessory.context.config.characteristicId}: `);
-          this.platform.log.error(error);
-          return;
-        }
-
-        this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> binding event handlers`);
-        this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connection successfully established.`);
-      });
-
-
-      characteristic.on('data', this.onData.bind(this));
+      await characteristic.startNotifications();
+      characteristic.on('valuechanged', this.onData.bind(this));
     }
 
     // this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> RDY?`);
 
     this.characteristic = characteristic;
   }
-
 }
