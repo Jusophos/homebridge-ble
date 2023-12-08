@@ -69,14 +69,23 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
       const adapter = await bluetooth.defaultAdapter();
 
+      log.debug('Discovering devices ...');
+
       if (! await adapter.isDiscovering())
         await adapter.startDiscovery()
 
+      // while (true) {
+
+      //   console.log(await adapter.devices());
+      //   await new Promise(resolve => setTimeout(resolve, 1000));
+      // }
+
       for (const accessory of this.configModel.accessories) {
 
+        log.info(`Waiting for ble device: ${accessory.deviceId}`);
         const peripheral = await adapter.waitDevice(accessory.deviceId);
 
-        this.log.debug(`[FOUND] ble device: ${accessory.deviceId}`);
+        log.debug(`[FOUND] ble device: ${accessory.deviceId}`);
 
         await processPerpheral(peripheral, accessory);
 
@@ -118,7 +127,7 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
       // the cached devices we stored in the `configureAccessory` method above
       const existingAccessory = this.accessories.find(a => a.UUID === uuid);
 
-      console.log(this.bleDevices.find(d => d.accessory.serviceId === accessoryConfig.serviceId));
+      // console.log(this.bleDevices.find(d => d.accessory.serviceId === accessoryConfig.serviceId));
 
 
       if (existingAccessory) {

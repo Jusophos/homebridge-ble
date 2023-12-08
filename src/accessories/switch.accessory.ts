@@ -48,7 +48,7 @@ export class HomebridgeSwitchPlatformAccessory {
 
     this.peripheral = device.peripheral;
 
-    console.log(this.peripheral);
+    // console.log(this.peripheral);
 
     // this.peripheral.on('disconnect', () => {
 
@@ -271,7 +271,7 @@ export class HomebridgeSwitchPlatformAccessory {
 
 
       const service = await gattServer.getPrimaryService(this.accessory.context.config.serviceId.toLowerCase())
-      const characteristic = await service.getCharacteristic(this.accessory.context.config.characteristicId.toLowerCase())
+      characteristic = await service.getCharacteristic(this.accessory.context.config.characteristicId.toLowerCase())
 
       if (!characteristic) {
 
@@ -291,7 +291,7 @@ export class HomebridgeSwitchPlatformAccessory {
     //   console.log(e);
     // });
 
-    console.log(this.accessory.context.config);
+    // console.log(this.accessory.context.config);
 
     if (this.accessory.context.config.intervalForUpdating !== null && this.accessory.context.config.intervalForUpdating > 999) {
 
