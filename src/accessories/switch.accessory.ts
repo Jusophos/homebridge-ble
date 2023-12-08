@@ -50,33 +50,18 @@ export class HomebridgeSwitchPlatformAccessory {
 
     // console.log(this.peripheral);
 
+    this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> adding listener for disconnect ...`);
+    this.peripheral.on('disconnect', this._ble_onDisconnect.bind(this));  
+    // this.peripheral.on('disconnect', async () => {
 
-    this.peripheral.on('disconnect', async () => {
+    //   this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect ...`);
 
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect ...`);
+    //   setTimeout((async () => {
 
-      setTimeout((async () => {
+    //     await this._ble_connect();
 
-        await this._ble_connect();
-
-      }).bind(this), 3000);
-
-      // if (this.reconnectInterval !== null) {
-
-      //   clearTimeout(this.reconnectInterval);
-      //   this.reconnectInterval = null;
-      // }
-
-      // this.reconnectInterval = setTimeout(async () => {
-
-      //   if (await this._ble_connect()) {
-
-      //     clearTimeout(this.reconnectInterval);
-      //     this.reconnectInterval = null;
-      //   }
-
-      // }, 10000);
-    });
+    //   }).bind(this), 3000);
+    // });
 
     // this.peripheral.on('connect', async () => {
 
@@ -259,6 +244,17 @@ export class HomebridgeSwitchPlatformAccessory {
 
       return false;
     }
+  }
+
+  protected async _ble_onDisconnect() {
+
+    this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect ...`);
+
+    setTimeout((async () => {
+
+      await this._ble_connect();
+
+    }).bind(this), 3000);
   }
 
   protected async _ble_initialize(): Promise<boolean> {
