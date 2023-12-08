@@ -50,30 +50,37 @@ export class HomebridgeSwitchPlatformAccessory {
 
     // console.log(this.peripheral);
 
-    // this.peripheral.on('disconnect', () => {
 
-    //   this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect every 10 seconds ...`);
+    this.peripheral.on('disconnect', async () => {
 
-    //   if (this.reconnectInterval !== null) {
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect ...`);
 
-    //     clearInterval(this.reconnectInterval);
-    //     this.reconnectInterval = null;
-    //   }
+      setTimeout((async () => {
 
-    //   this.reconnectInterval = setInterval(async () => {
+        await this._ble_connect();
 
-    //     if (await this._ble_connect()) {
+      }).bind(this), 3000);
 
-    //       clearInterval(this.reconnectInterval);
-    //       this.reconnectInterval = null;
-    //     }
+      // if (this.reconnectInterval !== null) {
 
-    //   }, 10000);
-    // });
+      //   clearTimeout(this.reconnectInterval);
+      //   this.reconnectInterval = null;
+      // }
+
+      // this.reconnectInterval = setTimeout(async () => {
+
+      //   if (await this._ble_connect()) {
+
+      //     clearTimeout(this.reconnectInterval);
+      //     this.reconnectInterval = null;
+      //   }
+
+      // }, 10000);
+    });
 
     // this.peripheral.on('connect', async () => {
 
-    //   if (this.peripheral.state !== 'connected') {
+    //   if (!await this.peripheral.isConnected()) {
         
     //     return;
     //   }
@@ -82,11 +89,11 @@ export class HomebridgeSwitchPlatformAccessory {
 
     //   if (this.reconnectInterval !== null) {
 
-    //     clearInterval(this.reconnectInterval);
+    //     clearTimeout(this.reconnectInterval);
     //     this.reconnectInterval = null;
     //   }
 
-    //   await this._ble_initialize();
+    //   // await this._ble_initialize();
     // });
 
     this._ble_connect().then(async () => {
@@ -189,7 +196,7 @@ export class HomebridgeSwitchPlatformAccessory {
 
   protected async _ble_checkForConnection(): Promise<boolean> {
 
-    if (this.peripheral.state !== 'connected') {
+    if (!this.peripheral || !await this.peripheral.isConnected()) {
 
       this.platform.log.warn(`[${this.accessory.context.config.name}] (by:BLE) -> peripheral not connected. Could not perform any action.`);
 
@@ -228,20 +235,22 @@ export class HomebridgeSwitchPlatformAccessory {
 
       await this.peripheral.connect();
 
+      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
+
       return true;
 
     } catch (e) {
 
-      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> [ERROR] could not connect to BLE device`);
-      // this.platform.log.debug(e);
+      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> [ERROR] could not connect to BLE device. Retry in 10 seconds.`);
+      this.platform.log.debug(e);
 
       if (this.reconnectInterval === null) {
 
-        this.reconnectInterval = setInterval(async () => {
+        this.reconnectInterval = setTimeout(async () => {
 
           if (await this._ble_connect()) {
 
-            clearInterval(this.reconnectInterval);
+            clearTimeout(this.reconnectInterval);
             this.reconnectInterval = null;
           }
 
@@ -257,7 +266,8 @@ export class HomebridgeSwitchPlatformAccessory {
     // HERE WE NEED TO DISCOVER THE CHARACTERISTIC
     if (this.characteristic !== null) {
 
-      await this.characteristic.stopNotifications();
+      // await this.characteristic.stopNotifications();
+      this.characteristic = null;
     }
 
     this.characteristic = null;
