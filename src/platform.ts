@@ -76,6 +76,8 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
 
         const peripheral = await adapter.waitDevice(accessory.deviceId);
 
+        this.log.debug(`[FOUND] ble device: ${accessory.deviceId}`);
+
         await processPerpheral(peripheral, accessory);
 
         this.discoverDevices();
@@ -115,6 +117,8 @@ export class BleHomebridgePlatform implements DynamicPlatformPlugin {
       // see if an accessory with the same uuid has already been registered and restored from
       // the cached devices we stored in the `configureAccessory` method above
       const existingAccessory = this.accessories.find(a => a.UUID === uuid);
+
+      console.log(this.bleDevices.find(d => d.accessory.serviceId === accessoryConfig.serviceId));
 
 
       if (existingAccessory) {

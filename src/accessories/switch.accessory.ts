@@ -47,48 +47,51 @@ export class HomebridgeSwitchPlatformAccessory {
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.config.name);
 
     this.peripheral = device.peripheral;
-    this.peripheral.on('disconnect', () => {
 
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect every 10 seconds ...`);
+    console.log(this.peripheral);
 
-      if (this.reconnectInterval !== null) {
+    // this.peripheral.on('disconnect', () => {
 
-        clearInterval(this.reconnectInterval);
-        this.reconnectInterval = null;
-      }
+    //   this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> disconnected. Trying to reconnect every 10 seconds ...`);
 
-      this.reconnectInterval = setInterval(async () => {
+    //   if (this.reconnectInterval !== null) {
 
-        if (await this._ble_connect()) {
+    //     clearInterval(this.reconnectInterval);
+    //     this.reconnectInterval = null;
+    //   }
 
-          clearInterval(this.reconnectInterval);
-          this.reconnectInterval = null;
-        }
+    //   this.reconnectInterval = setInterval(async () => {
 
-      }, 10000);
-    });
+    //     if (await this._ble_connect()) {
 
-    this.peripheral.on('connect', async () => {
+    //       clearInterval(this.reconnectInterval);
+    //       this.reconnectInterval = null;
+    //     }
 
-      if (this.peripheral.state !== 'connected') {
+    //   }, 10000);
+    // });
+
+    // this.peripheral.on('connect', async () => {
+
+    //   if (this.peripheral.state !== 'connected') {
         
-        return;
-      }
+    //     return;
+    //   }
       
-      this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
+    //   this.platform.log.info(`[${this.accessory.context.config.name}] (by:BLE) -> connected`);
 
-      if (this.reconnectInterval !== null) {
+    //   if (this.reconnectInterval !== null) {
 
-        clearInterval(this.reconnectInterval);
-        this.reconnectInterval = null;
-      }
+    //     clearInterval(this.reconnectInterval);
+    //     this.reconnectInterval = null;
+    //   }
 
-      await this._ble_initialize();
-    });
+    //   await this._ble_initialize();
+    // });
 
     this._ble_connect().then(async () => {
 
-      // await this._ble_initialize();
+      await this._ble_initialize();
     });
 
     // register handlers for the On/Off Characteristic
