@@ -118,10 +118,10 @@ export class HomebridgeSwitchPlatformAccessory {
 
       this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> written!`);
 
-      const readData = await this.characteristic.readValue();
-      const s = readData.readUInt8(0) === 1;
+      // const readData = await this.characteristic.readValue();
+      // const s = readData.readUInt8(0) === 1;
 
-      this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> read: ${s? 'ON' : 'OFF'}`);
+      // this.platform.log.debug(`[${this.accessory.context.config.name}] (by:BLE) -> read: ${s? 'ON' : 'OFF'}`);
       
       
 
